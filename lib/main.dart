@@ -2,7 +2,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:kirsch/raw_picture.dart';
 
 void main() {
   runApp(const MyApp());
@@ -28,6 +28,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   Uint8List? _bytes;
+  ui.Image? _image;
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +43,14 @@ class _MyHomePageState extends State<MyHomePage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
             Expanded(child: Image.asset('assets/pikachu.webp')),
-            if (_bytes != null) Expanded(child: Image.memory(_bytes!)),
+            if (_bytes != null)
+              Expanded(child: Image.memory(_bytes!))
+            else
+              const Spacer(),
+            if (_image != null)
+              Expanded(child: RawImage(image: _image))
+            else
+              const Spacer(),
           ],
         ),
       ),
@@ -54,44 +62,34 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _process() async {
-    // Decode image file to Uint8List `bytes`
-    final data = await rootBundle.load('assets/pikachu.webp');
-    ui.Image image = await decodeImageFromList(data.buffer.asUint8List());
-    final bytes = (await image.toByteData())!.buffer.asUint8List();
+    final p = RawPicture();
+    await p.loadAsset('assets/pikachu.webp');
+    // final Uint8List bytes = p.bytes;
 
-    // Process `bytes` in RGBA format
-    for (int i = 0; i < bytes.length; i += 4) {
-      // Extract rgb channels
-      final r = bytes[i];
-      final g = bytes[i + 1];
-      final b = bytes[i + 2];
-
-      // Convert to greyscale
-      final double brightness = r * 0.3 + g * 0.6 + b * 0.1;
-      bytes[i] = brightness.toInt();
-      bytes[i + 1] = brightness.toInt();
-      bytes[i + 2] = brightness.toInt();
+    for (int i = 0; i < 200; i++) {
+      for (int j = 0; j < 200; j++) {
+        p.setPixel(i, j, Colors.red);
+      }
     }
 
-    // Encode the Uint8List `bytes` to a ui.Image
-    final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
-    final desc = ui.ImageDescriptor.raw(
-      buffer,
-      width: image.width,
-      height: image.height,
-      pixelFormat: ui.PixelFormat.rgba8888,
-    );
-    final codec = await desc.instantiateCodec();
-    final frame = await codec.getNextFrame();
-    final ui.Image outputImage = frame.image;
+    // // Process `bytes` in RGBA format
+    // for (int i = 0; i < bytes.length; i += 4) {
+    //   // Extract rgb channels
+    //   final r = bytes[i];
+    //   final g = bytes[i + 1];
+    //   final b = bytes[i + 2];
+    //
+    //   // Convert to greyscale
+    //   final double brightness = r * 0.3 + g * 0.6 + b * 0.1;
+    //   bytes[i] = brightness.toInt();
+    //   bytes[i + 1] = brightness.toInt();
+    //   bytes[i + 2] = brightness.toInt();
+    // }
 
-    // Convert ui.Image to PNG format
-    final outputData = await outputImage.toByteData(
-      format: ui.ImageByteFormat.png,
-    );
-    final Uint8List pngBytes = outputData!.buffer.asUint8List();
+    final img = await p.toUiImage();
+    setState(() => _image = img);
 
-    // Display Uint8List data (PNG format) with an `Image.memory` widget.
-    setState(() => _bytes = pngBytes);
+    final png = await p.toPngBytes();
+    setState(() => _bytes = png);
   }
 }
