@@ -18,8 +18,8 @@ class RawPicture {
     bytes = u8list;
   }
 
-  Color getPixel(int i, int j) {
-    final int offset = (i + j * width) * 4;
+  Color getPixel(int x, int y) {
+    final int offset = getOffset(x, y);
     return Color.fromARGB(
       bytes[offset + 3],
       bytes[offset],
@@ -28,12 +28,18 @@ class RawPicture {
     );
   }
 
-  void setPixel(int i, int j, Color color) {
-    final int offset = (i + j * width) * 4;
+  void setPixel(int x, int y, Color color) {
+    final int offset = getOffset(x, y);
     bytes[offset + 3] = color.alpha;
     bytes[offset] = color.red;
     bytes[offset + 1] = color.green;
     bytes[offset + 2] = color.blue;
+  }
+
+  int getOffset(int x, int y) {
+    assert(x >= 0 && x < width, 'x = $x but total width is $width');
+    assert(y >= 0 && y < height, 'y = $y but total height is $height');
+    return (x + y * width) * 4;
   }
 
   Future<ui.Image> toUiImage() async {
