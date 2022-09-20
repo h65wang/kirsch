@@ -1,61 +1,60 @@
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
 import 'package:kirsch/raw_picture.dart';
 
 class KirschDetector {
   static void process(RawPicture p, {int threshold = 200}) {
+    // Calculate luminance for each pixel, and store it as the alpha channel
     for (int x = 0; x < p.width; x++) {
       for (int y = 0; y < p.height; y++) {
         final c = p.getPixel(x, y);
         final lum = (c.computeLuminance() * 255).toInt();
-        p.setPixel(x, y, Color.fromARGB(lum, 0, 0, 0));
+        p.setByte(x, y, 3, lum);
       }
     }
 
-    for (int i = 1; i < p.width - 1; i++) {
-      for (int j = 1; j < p.height - 1; j++) {
-        final List<List<Color>> pixels = [
+    // Calculate kirsch score and set RGB channel to 0x000000 (black) if it's
+    // an edge, and 0xffffff (white) if it's not an edge. This operation
+    // does not alter the alpha channel (with luminance info) to avoid
+    // interfering neighbouring pixels when they calculate their kirsch scores.
+    for (int x = 1; x < p.width - 1; x++) {
+      for (int y = 1; y < p.height - 1; y++) {
+        final List<List<int>> lum = [
           [
-            p.getPixel(i - 1, j - 1),
-            p.getPixel(i, j - 1),
-            p.getPixel(i + 1, j - 1)
+            p.getByte(x - 1, y - 1, 3),
+            p.getByte(x, y - 1, 3),
+            p.getByte(x + 1, y - 1, 3),
           ],
           [
-            p.getPixel(i - 1, j),
-            p.getPixel(i, j),
-            p.getPixel(i + 1, j),
+            p.getByte(x - 1, y, 3),
+            p.getByte(x, y, 3),
+            p.getByte(x + 1, y, 3),
           ],
           [
-            p.getPixel(i - 1, j + 1),
-            p.getPixel(i, j + 1),
-            p.getPixel(i + 1, j + 1),
+            p.getByte(x - 1, y + 1, 3),
+            p.getByte(x, y + 1, 3),
+            p.getByte(x + 1, y + 1, 3),
           ],
         ];
-        final int score = _computeKirsch(pixels);
-        p.setPixel(
-          i,
-          j,
-          score > threshold
-              ? p.getPixel(i, j).withRed(255)
-              : p.getPixel(i, j).withRed(0),
-        );
+        final int score = _computeKirsch(lum);
+
+        final v = score > threshold ? 0 : 0xff;
+        p.setByte(x, y, 0, v);
+        p.setByte(x, y, 1, v);
+        p.setByte(x, y, 2, v);
       }
     }
 
-    for (int i = 1; i < p.width - 1; i++) {
-      for (int j = 1; j < p.height - 1; j++) {
-        final c = p.getPixel(i, j);
-        if (c.red > 0) {
-          p.setPixel(i, j, Colors.black);
-        } else {
-          p.setPixel(i, j, Colors.white);
-        }
+    // Set the alpha channel to 0xff (overwriting the luminance info),
+    // so that edges identified in the previous step are rendered as black.
+    for (int x = 1; x < p.width - 1; x++) {
+      for (int y = 1; y < p.height - 1; y++) {
+        p.setByte(x, y, 3, 0xff);
       }
     }
   }
 
-  static int _computeKirsch(List<List<Color>> pixels) {
+  static int _computeKirsch(List<List<int>> pixels) {
     const matrices = [
       [[5, 5, 5], [-3, 0, -3], [-3, -3, -3]], // N
       [[-3, -3, -3], [-3, 0, -3], [5, 5, 5]], // S
@@ -71,7 +70,7 @@ class KirschDetector {
       int sum = 0;
       for (int i = 0; i < 3; i++) {
         for (int j = 0; j < 3; j++) {
-          final int product = m[i][j] * pixels[i][j].alpha;
+          final int product = m[i][j] * pixels[i][j];
           sum += product;
         }
       }

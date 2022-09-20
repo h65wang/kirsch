@@ -29,6 +29,8 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   ui.Image? _image;
 
+  static const String assetFile = 'assets/pikachu.webp';
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -41,7 +43,7 @@ class _MyHomePageState extends State<MyHomePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            Expanded(child: Image.asset('assets/pikachu.webp')),
+            Expanded(child: Image.asset(assetFile)),
             if (_image != null)
               Expanded(child: RawImage(image: _image))
             else
@@ -58,12 +60,12 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void _process() async {
     final p = RawPicture();
-    await p.loadAsset('assets/pikachu.webp');
+    await p.loadAsset(assetFile);
 
     Stopwatch stopwatch = Stopwatch()..start();
     KirschDetector.process(p, threshold: 500);
     stopwatch.stop();
-    print(stopwatch.elapsedMilliseconds);
+    print('total: ${stopwatch.elapsedMilliseconds}');
 
     final img = await p.toUiImage();
     setState(() => _image = img);

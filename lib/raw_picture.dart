@@ -5,35 +5,44 @@ import 'package:flutter/painting.dart';
 import 'package:flutter/services.dart';
 
 class RawPicture {
-  late final Uint8List bytes; // RGBA
+  late final ByteData bytes; // RGBA
   late final int width;
   late final int height;
 
   Future<void> loadAsset(String asset) async {
     final ByteData data = await rootBundle.load(asset);
     final ui.Image image = await decodeImageFromList(data.buffer.asUint8List());
-    final Uint8List u8list = (await image.toByteData())!.buffer.asUint8List();
+    final ByteData byteData = (await image.toByteData())!;
+
     width = image.width;
     height = image.height;
-    bytes = u8list;
+    bytes = byteData;
   }
 
   Color getPixel(int x, int y) {
     final int offset = getOffset(x, y);
-    return Color.fromARGB(
-      bytes[offset + 3],
-      bytes[offset],
-      bytes[offset + 1],
-      bytes[offset + 2],
-    );
+    final int rgba = bytes.getUint32(offset);
+    // Convert RGBA format to ARGB format
+    final argb = rgba >> 8 | (rgba & 0xff) << 24;
+    return Color(argb);
   }
 
   void setPixel(int x, int y, Color color) {
     final int offset = getOffset(x, y);
-    bytes[offset + 3] = color.alpha;
-    bytes[offset] = color.red;
-    bytes[offset + 1] = color.green;
-    bytes[offset + 2] = color.blue;
+    bytes.setUint8(offset + 3, color.alpha);
+    bytes.setUint8(offset, color.red);
+    bytes.setUint8(offset + 1, color.green);
+    bytes.setUint8(offset + 2, color.blue);
+  }
+
+  int getByte(int x, int y, int offset) {
+    final int pos = getOffset(x, y) + offset;
+    return bytes.getUint8(pos);
+  }
+
+  void setByte(int x, int y, int offset, int value) {
+    final int pos = getOffset(x, y) + offset;
+    bytes.setUint8(pos, value);
   }
 
   int getOffset(int x, int y) {
@@ -43,7 +52,8 @@ class RawPicture {
   }
 
   Future<ui.Image> toUiImage() async {
-    final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+    final u8list = bytes.buffer.asUint8List();
+    final buffer = await ui.ImmutableBuffer.fromUint8List(u8list);
     final desc = ui.ImageDescriptor.raw(
       buffer,
       width: width,
